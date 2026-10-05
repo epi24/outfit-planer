@@ -1,0 +1,421 @@
+/* Colour matching: swatches, stripes, cards, grids. A colour arrives as --c. */
+
+/* Every swatch gets a hairline: 14 palette colours all but vanish on white
+   and 5 on black. */
+.swatch {
+  display: block;
+  position: relative;
+  border-radius: 10px;
+  background: var(--c);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.stripes {
+  display: flex;
+  position: relative;
+  height: 56px;
+  overflow: hidden;
+  border-radius: 10px 10px 0 0;
+}
+
+.stripes > * {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  background: var(--c);
+}
+
+.stripes::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  pointer-events: none;
+}
+
+/* Marks the colour whose combinations are being listed. */
+.stripes > .is-picked::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.stripes-large {
+  height: clamp(200px, 42svh, 360px);
+  border-radius: var(--radius);
+}
+
+/* The default ring sits outside the link and would be clipped by .stripes. */
+.stripes-large a:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: -6px;
+}
+
+/* ---- combination list ---- */
+
+.filters {
+  position: sticky;
+  top: var(--safe-top);
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin: 0 calc(-1 * var(--pad));
+  padding: 8px var(--pad);
+  background: var(--bg);
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--line);
+}
+
+.segmented label {
+  display: block;
+  position: relative;
+}
+
+.segmented span {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  padding: 2px 4px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.15;
+  text-align: center;
+  cursor: pointer;
+}
+
+.segmented small {
+  color: var(--muted);
+  font-size: 0.6875rem;
+}
+
+.segmented input:checked + span {
+  background: var(--surface);
+  font-weight: 600;
+}
+
+.segmented input:focus-visible + span {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
+/* Tall enough that the page can stay scrolled to where the filter block is
+   stuck, even with one card left; otherwise the focused search field would
+   jump while typing. 118px is the height of the filter block. */
+.results {
+  min-height: calc(100svh - 118px);
+}
+
+.status {
+  margin: 4px 0 12px;
+  font-size: 0.875rem;
+}
+
+/* minmax(0, 1fr): an auto column would grow to fit the unwrapped colour names
+   and push the page wider than the screen. */
+.card-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.card {
+  display: block;
+  border-radius: 10px;
+  background: var(--surface);
+  text-decoration: none;
+}
+
+/* Keyboard focus must not land underneath the sticky filter block. */
+.card-list .card {
+  scroll-margin-top: calc(var(--safe-top) + 126px);
+}
+
+.card-caption {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 10px 12px;
+}
+
+.card-id {
+  flex: none;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-names {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-names strong {
+  color: var(--text);
+}
+
+.empty {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  padding: 24px 0;
+}
+
+/* ---- combination detail ---- */
+
+.color-rows {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.color-rows li {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 4px 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.chip {
+  grid-row: span 2;
+  width: 44px;
+  height: 44px;
+}
+
+.color-name {
+  grid-column: 2 / -1;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.copy-hex {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* Tighter in the rows: at 375px the button and "Farbe ansehen" share a line. */
+.color-rows .copy-hex {
+  gap: 6px;
+  padding: 0 8px;
+}
+
+.copy-hex .hex {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.9375rem;
+}
+
+.copy-state {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.pager a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+/* ---- colour picker screen ---- */
+
+.panel {
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.panel h2 {
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
+.hint {
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+}
+
+.free-color {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.free-color .button,
+.free-color .error {
+  grid-column: 1 / -1;
+}
+
+.color-well input {
+  display: block;
+  width: 56px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: none;
+  cursor: pointer;
+}
+
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.swatch-grid .swatch {
+  aspect-ratio: 1;
+}
+
+/* ---- colour detail ---- */
+
+.hero {
+  display: grid;
+  place-items: end start;
+  height: 160px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.meta .copy-hex {
+  color: var(--text);
+}
+
+.partner-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 8px;
+}
+
+.partner-grid .swatch {
+  aspect-ratio: 1;
+}
+
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 22px;
+  padding: 1px 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.group + .group {
+  margin-top: 8px;
+}
+
+/* ---- free colour result ---- */
+
+.meta + .free-color {
+  margin-top: 16px;
+}
+
+.notice {
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+}
+
+.match-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.match {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 64px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+  text-decoration: none;
+}
+
+.split-chip {
+  display: flex;
+  flex: none;
+  position: relative;
+  width: 64px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.split-chip > * {
+  flex: 1;
+  background: var(--c);
+}
+
+.split-chip::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.match-text {
+  display: grid;
+  min-width: 0;
+}
+
+.match-text > span {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}

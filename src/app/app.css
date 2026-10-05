@@ -1,0 +1,275 @@
+/* Shell: tokens, reset, page frame, tab bar, form controls. */
+
+:root {
+  color-scheme: light dark;
+  /* Neutral greys only, so the chrome does not bias how colours are seen. */
+  --bg: #f4f4f2;
+  --surface: #ffffff;
+  --text: #1a1a1a;
+  --muted: #595959;
+  --line: rgb(0 0 0 / 0.12);
+  --hairline: rgb(0 0 0 / 0.14);
+  --danger: #b3261e;
+  --pad: 16px;
+  --radius: 12px;
+  --tabbar-h: 56px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  font: 16px/1.4 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141414;
+    --surface: #1f1f1f;
+    --text: #f2f2f2;
+    --muted: #a8a8a8;
+    --line: rgb(255 255 255 / 0.14);
+    --hairline: rgb(255 255 255 / 0.2);
+    --danger: #ffb4ab;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* iOS tints the system bars from this background; it must match the tab bar. */
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Opaque band over the status-bar area so that nothing scrolls through above
+   the sticky filter, whatever the reported inset is. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: var(--safe-top);
+  background: var(--bg);
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* The document is the only scroll container: no full-height boxes and no
+   inner or horizontal scrollers (they would fight the back swipe). */
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--safe-top) max(var(--pad), env(safe-area-inset-right, 0px))
+    calc(var(--tabbar-h) + max(8px, var(--safe-bottom)) + 24px)
+    max(var(--pad), env(safe-area-inset-left, 0px));
+}
+
+/* Keyboard focus must not land underneath the fixed tab bar. */
+main a,
+main button {
+  scroll-margin-bottom: calc(var(--tabbar-h) + max(8px, var(--safe-bottom)) + 8px);
+}
+
+h1,
+h2,
+h3,
+p,
+ul {
+  margin: 0;
+}
+
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+h1 {
+  font-size: 1.75rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+h1:focus {
+  outline: none;
+}
+
+h2 {
+  margin: 28px 0 12px;
+  font-size: 1.125rem;
+}
+
+h3 {
+  margin: 16px 0 8px;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+h2 small,
+h3 small {
+  margin-left: 4px;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- page header ---- */
+
+.screen-header {
+  padding: 16px 0 12px;
+}
+
+.subtitle {
+  color: var(--muted);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin: -8px 0 4px -8px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* ---- form controls ---- */
+
+/* At least 16px, otherwise iOS zooms the page when a field gets focus. */
+input,
+button {
+  font: inherit;
+  font-size: max(16px, 1rem);
+  touch-action: manipulation;
+}
+
+.text-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* The placeholder is the only visible label of both fields. */
+.text-input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.text-input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.button {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.text-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  text-underline-offset: 3px;
+}
+
+.error {
+  color: var(--danger);
+}
+
+.hint,
+.status,
+.notice {
+  color: var(--muted);
+}
+
+/* ---- tab bar ---- */
+
+.tabbar {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 3;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: 0 env(safe-area-inset-right, 0px) max(8px, var(--safe-bottom))
+    env(safe-area-inset-left, 0px);
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.tabbar a {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  min-height: var(--tabbar-h);
+  color: var(--muted);
+  font-size: 0.6875rem;
+  text-decoration: none;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.tabbar a[aria-current='page'] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.tabbar svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+/* ---- footer ---- */
+
+.app-footer {
+  margin-top: 32px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.app-footer p + p {
+  margin-top: 4px;
+}
