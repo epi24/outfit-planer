@@ -19,9 +19,7 @@ export interface Box {
   height: number
 }
 
-export const DEFAULT_TOLERANCE = 0.12
-export const MIN_TOLERANCE = 0.03
-export const MAX_TOLERANCE = 0.3
+const DEFAULT_TOLERANCE = 0.12
 
 // Lightness counts less than hue and chroma, so that shadows and uneven
 // lighting on the background are tolerated.
@@ -173,7 +171,7 @@ export function segment(
 }
 
 /** Removes specks: keeps the largest connected part and any at least a tenth its size. */
-function keepLargeParts(mask: Uint8Array, width: number, height: number) {
+export function keepLargeParts(mask: Uint8Array, width: number, height: number) {
   const total = width * height
   const labels = new Int32Array(total)
   const queue = new Int32Array(total)

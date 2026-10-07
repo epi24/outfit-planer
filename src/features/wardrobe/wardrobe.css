@@ -224,21 +224,6 @@ textarea.text-input {
   resize: vertical;
 }
 
-input[type='range'] {
-  width: 100%;
-  min-height: 44px;
-  margin: 0;
-  accent-color: var(--text);
-}
-
-.range-ends {
-  display: flex;
-  justify-content: space-between;
-  margin-top: -8px;
-  color: var(--muted);
-  font-size: 0.8125rem;
-}
-
 .check {
   display: flex;
   gap: 10px;

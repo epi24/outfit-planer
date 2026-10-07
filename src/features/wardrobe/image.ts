@@ -21,10 +21,15 @@ function context(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
 export async function loadPhoto(file: Blob): Promise<Photo> {
   const url = URL.createObjectURL(file)
   try {
-    const image = new Image()
-    image.src = url
     // An <img> applies the EXIF rotation of phone photos; drawImage keeps it.
-    await image.decode()
+    // The load event is used instead of decode(), which never settles while
+    // the page is not being rendered (e.g. the app is in the background).
+    const image = new Image()
+    await new Promise((resolve, reject) => {
+      image.onload = resolve
+      image.onerror = reject
+      image.src = url
+    })
     const scale = Math.min(1, WORK_EDGE / Math.max(image.naturalWidth, image.naturalHeight))
     const width = Math.max(1, Math.round(image.naturalWidth * scale))
     const height = Math.max(1, Math.round(image.naturalHeight * scale))

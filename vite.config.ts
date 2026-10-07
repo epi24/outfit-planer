@@ -18,6 +18,22 @@ export default defineConfig({
       // clientsClaim for autoUpdate while it is unset.
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'icon.svg', 'apple-touch-icon-180x180.png'],
+      workbox: {
+        // The background-removal model (4.6 MB) and its runtime (14 MB) are
+        // not part of the install; they are fetched when the wardrobe first
+        // needs them and then kept for offline use.
+        globPatterns: ['**/*.{js,css,html}'],
+        runtimeCaching: [
+          {
+            urlPattern: /\.(?:onnx|wasm)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'background-removal',
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+        ],
+      },
       manifest: {
         name: 'Outfit Planner',
         short_name: 'Outfits',

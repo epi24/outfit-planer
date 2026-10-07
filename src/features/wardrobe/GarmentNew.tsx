@@ -4,8 +4,6 @@ import { navigate } from '../../app/router'
 import { ScreenHeader } from '../wada/parts'
 import {
   type GarmentColor,
-  MAX_TOLERANCE,
-  MIN_TOLERANCE,
   coverage,
   dominantColors,
   rgbaToOklab,
@@ -21,7 +19,8 @@ interface Work {
   lab: Float32Array
   /** 1 = garment */
   mask: Uint8Array
-  tolerance: number
+  /** the model could not be used and the colour-based method stepped in */
+  simple: boolean
 }
 
 const EMPTY_DRAFT: GarmentDraft = { category: '', name: '', note: '', colors: [] }
@@ -33,17 +32,37 @@ function detectColors(work: Work, keepBackground: boolean): GarmentColor[] {
   return colors.length > 0 ? colors : [{ hex: '#808080', share: 0 }]
 }
 
+/** Lets the browser paint (the "working" message) before a long computation. */
+const nextFrame = () => new Promise((resolve) => setTimeout(resolve, 50))
+
+async function findGarment(photo: Photo, lab: Float32Array): Promise<Pick<Work, 'mask' | 'simple'>> {
+  try {
+    const { cutOut } = await import('./matte')
+    return { mask: await cutOut(photo, lab), simple: false }
+  } catch {
+    // No model, e.g. offline before it was ever downloaded: fall back to
+    // removing whatever matches the colour along the photo's edge.
+    const tolerance = suggestTolerance(lab, photo.width, photo.height)
+    return { mask: segment(lab, photo.width, photo.height, tolerance), simple: true }
+  }
+}
+
 export function GarmentNew() {
   const [phase, setPhase] = useState<'pick' | 'working' | 'review'>('pick')
   const [work, setWork] = useState<Work | null>(null)
   const [keepBackground, setKeepBackground] = useState(false)
   const [draft, setDraft] = useState<GarmentDraft>(EMPTY_DRAFT)
-  // Once the user has corrected a colour, moving the slider leaves colours alone.
+  // Once the user has corrected a colour, the app leaves the colours alone.
   const [colorsEdited, setColorsEdited] = useState(false)
   const [categoryMissing, setCategoryMissing] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const canvas = useRef<HTMLCanvasElement>(null)
+
+  // Start fetching the model while the user is still taking the photo.
+  useEffect(() => {
+    import('./matte').then((matte) => matte.loadModel()).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (phase === 'review' && work && canvas.current) {
@@ -59,10 +78,9 @@ export function GarmentNew() {
     setProblem(null)
     try {
       const photo = await loadPhoto(file)
+      await nextFrame()
       const lab = rgbaToOklab(photo.pixels.data)
-      const tolerance = suggestTolerance(lab, photo.width, photo.height)
-      const mask = segment(lab, photo.width, photo.height, tolerance)
-      const next: Work = { photo, lab, mask, tolerance }
+      const next: Work = { photo, lab, ...(await findGarment(photo, lab)) }
       setWork(next)
       setKeepBackground(false)
       setColorsEdited(false)
@@ -74,18 +92,12 @@ export function GarmentNew() {
     }
   }
 
-  function update(next: Work, nextKeepBackground: boolean) {
-    setWork(next)
-    setKeepBackground(nextKeepBackground)
-    if (!colorsEdited) {
-      setDraft((current) => ({ ...current, colors: detectColors(next, nextKeepBackground) }))
-    }
-  }
-
-  function changeTolerance(tolerance: number) {
+  function changeKeepBackground(keep: boolean) {
     if (!work) return
-    const { photo, lab } = work
-    update({ ...work, tolerance, mask: segment(lab, photo.width, photo.height, tolerance) }, false)
+    setKeepBackground(keep)
+    if (!colorsEdited) {
+      setDraft((current) => ({ ...current, colors: detectColors(work, keep) }))
+    }
   }
 
   function changeDraft(next: GarmentDraft) {
@@ -124,14 +136,23 @@ export function GarmentNew() {
   }
 
   const share = work ? coverage(work.mask) : 0
-  const warning =
-    !work || keepBackground
-      ? null
-      : share < 0.01
-        ? 'Es wurde kein Kleidungsstück erkannt. Schiebe den Regler nach links oder speichere das Foto mit Hintergrund.'
-        : share > 0.85
-          ? 'Der Hintergrund wurde kaum entfernt. Schiebe den Regler nach rechts oder fotografiere vor einer einfarbigen Fläche.'
-          : null
+  const notices: string[] = []
+  if (work && !keepBackground) {
+    if (work.simple) {
+      notices.push(
+        'Das Freistellen-Modell konnte nicht geladen werden (beim ersten Mal ist eine Internetverbindung nötig). Für dieses Foto wurde ein einfacheres Verfahren verwendet.',
+      )
+    }
+    if (share < 0.01) {
+      notices.push(
+        'Es wurde kein Kleidungsstück erkannt. Nimm ein anderes Foto auf oder speichere dieses mit Hintergrund.',
+      )
+    } else if (share > 0.9) {
+      notices.push(
+        'Der Hintergrund wurde kaum entfernt. Fotografiere mit etwas Abstand, sodass ringsum Hintergrund zu sehen ist.',
+      )
+    }
+  }
 
   return (
     <>
@@ -140,8 +161,8 @@ export function GarmentNew() {
       {phase !== 'review' && (
         <section className="panel photo-pick">
           <p>
-            Lege das Kleidungsstück auf eine einfarbige Fläche, die sich farblich deutlich abhebt,
-            und fotografiere so, dass ringsum Hintergrund zu sehen ist.
+            Lege das Kleidungsstück flach hin und fotografiere so, dass es ganz im Bild ist und
+            ringsum etwas Hintergrund zu sehen ist.
           </p>
           <label className="button">
             Foto aufnehmen
@@ -164,7 +185,11 @@ export function GarmentNew() {
               disabled={phase === 'working'}
             />
           </label>
-          {phase === 'working' && <p role="status">Foto wird verarbeitet …</p>}
+          {phase === 'working' && (
+            <p role="status">
+              Foto wird verarbeitet … Beim ersten Mal lädt die App dafür einmalig rund 18 MB nach.
+            </p>
+          )}
         </section>
       )}
 
@@ -187,39 +212,17 @@ export function GarmentNew() {
             <canvas ref={canvas} aria-label="Vorschau des freigestellten Kleidungsstücks" />
           </div>
 
-          <div className="field">
-            <label htmlFor="cutout-tolerance">Hintergrund entfernen</label>
-            <input
-              id="cutout-tolerance"
-              type="range"
-              min={MIN_TOLERANCE}
-              max={MAX_TOLERANCE}
-              step={0.01}
-              value={work.tolerance}
-              disabled={keepBackground}
-              onChange={(event) => changeTolerance(Number(event.target.value))}
-            />
-            <p className="range-ends" aria-hidden="true">
-              <span>weniger</span>
-              <span>mehr</span>
+          {notices.map((notice) => (
+            <p key={notice} className="notice" role="status">
+              {notice}
             </p>
-            <p className="hint">
-              Fehlen Teile des Kleidungsstücks, schiebe nach links. Bleibt Hintergrund stehen,
-              schiebe nach rechts.
-            </p>
-          </div>
-
-          {warning && (
-            <p className="notice" role="status">
-              {warning}
-            </p>
-          )}
+          ))}
 
           <label className="check">
             <input
               type="checkbox"
               checked={keepBackground}
-              onChange={(event) => update(work, event.target.checked)}
+              onChange={(event) => changeKeepBackground(event.target.checked)}
             />
             Hintergrund nicht entfernen
           </label>

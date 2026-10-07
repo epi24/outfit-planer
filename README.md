@@ -53,15 +53,23 @@ Der Service Worker (Offline-Betrieb) läuft nur im Produktions-Build, nicht unte
 
 ## Kleiderschrank
 
-- **Freistellen ohne KI:** Die Farbe am Bildrand gilt als Hintergrund. Entfernt wird alles,
-  was vom Rand aus zusammenhängt und dieser Farbe ähnelt; Schatten und weiche Verläufe
-  werden mitgenommen. Der Regler „Hintergrund entfernen“ stellt ein, wie ähnlich eine
-  Stelle dem Hintergrund sein darf; sein Startwert richtet sich danach, wie gleichmäßig
-  der Bildrand ist.
-- **Grenzen:** Das Kleidungsstück muss auf einer einfarbigen Fläche liegen, die sich
-  farblich abhebt, und ringsum muss Hintergrund zu sehen sein. Ein weißes Hemd auf weißem
-  Laken lässt sich so nicht trennen; dafür gibt es „Hintergrund nicht entfernen“. Stellen
-  in Hintergrundfarbe, die vom Kleidungsstück ganz umschlossen sind, bleiben stehen.
+- **Freistellen mit einem kleinen Modell:** U²-Net-p (4,6 MB) sucht im Foto das
+  Hauptobjekt. Es läuft über ONNX Runtime (WebAssembly) direkt auf dem Gerät; kein Foto
+  verlässt es. Das Modell sieht das Foto nur in 320 × 320 Pixeln und entscheidet, *was*
+  Kleidungsstück ist. *Wo genau* die Kante verläuft, bestimmen danach die Farben des
+  Fotos (`refine.ts`: Guided Filter, dann Zuordnung des Randstreifens nach lokaler Farbe).
+- **Download bei der ersten Benutzung:** Modell (`public/models/u2netp.onnx`) und Laufzeit
+  (`ort-wasm-simd-threaded.wasm`, 14 MB) gehören nicht zur Installation. Sie werden
+  geladen, sobald die Seite „Neues Kleidungsstück“ geöffnet wird, und bleiben danach im
+  Cache `background-removal` für den Offline-Betrieb.
+- **Ein Thread:** Mehrere Threads bräuchten `SharedArrayBuffer` und damit HTTP-Header, die
+  GitHub Pages nicht setzen kann. Ein Foto braucht am PC rund drei Sekunden.
+- **Ersatzverfahren:** Lässt sich das Modell nicht laden (z. B. offline vor dem ersten
+  Download), entfernt die App, was der Farbe des Bildrands ähnelt (`cutout.ts`), und weist
+  darauf hin.
+- **Grenzen:** Das Modell nimmt das auffälligste Objekt. Liegen mehrere Dinge im Bild,
+  kommen sie eventuell mit; füllt das Kleidungsstück das ganze Bild, findet es nichts.
+  Für solche Fälle gibt es „Hintergrund nicht entfernen“.
 - **Farben:** Aus dem freigestellten Teil werden die Hauptfarbe und bis zu zwei weitere
   Farben bestimmt (ab 12 % Flächenanteil). Beleuchtete und schattige Stellen desselben
   Stoffs zählen als eine Farbe. Jede Farbe lässt sich von Hand ändern und führt zu den
@@ -69,6 +77,12 @@ Der Service Worker (Offline-Betrieb) läuft nur im Produktions-Build, nicht unte
 - **Speicherung:** Fotos (als JPEG, längste Seite höchstens 1024 px) und Angaben liegen in
   der IndexedDB des Geräts. Es gibt keine Synchronisation und noch keine Sicherung: Wird
   die App vom Home-Bildschirm gelöscht, ist der Kleiderschrank weg.
+
+### Lizenzen
+
+- U²-Net-p: Xuebin Qin u. a., Apache-2.0 (https://github.com/xuebinqin/U-2-Net); die
+  ONNX-Datei stammt aus den Releases von rembg (https://github.com/danielgatis/rembg).
+- ONNX Runtime Web: Microsoft, MIT.
 
 ## Aufs iPhone bringen
 
@@ -106,8 +120,10 @@ Am PC nicht prüfbar, deshalb nach der ersten Installation durchgehen:
 - [ ] Hex-Wert antippen kopiert ihn.
 - [ ] Dunkelmodus: Farbfelder bleiben an Schwarz und Weiß erkennbar.
 - [ ] Kleiderschrank: „Foto aufnehmen“ öffnet die Kamera, „Aus Fotos wählen“ die Mediathek.
-- [ ] Ein Hochformat-Foto erscheint aufrecht und wird in wenigen Sekunden freigestellt.
-- [ ] Der Regler „Hintergrund entfernen“ reagiert flüssig.
+- [ ] Beim ersten Foto lädt die App das Modell nach; danach klappt das Freistellen auch im
+      Flugmodus.
+- [ ] Ein Hochformat-Foto erscheint aufrecht. Wie lange dauert das Freistellen?
+- [ ] Safari stürzt beim Freistellen nicht ab und lädt die Seite nicht neu.
 - [ ] Ein gespeichertes Kleidungsstück ist nach dem Schließen und erneuten Öffnen der App
       noch da.
 - [ ] Flugmodus einschalten, App schließen und neu öffnen: sie startet.
