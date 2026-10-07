@@ -33,6 +33,16 @@ const TABS: readonly TabEntry[] = [
       </svg>
     ),
   },
+  {
+    tab: 'wardrobe',
+    path: paths.wardrobe,
+    label: 'Kleiderschrank',
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9 3h6l5 3-2 4-2-1v11H8V9l-2 1-2-4 5-3zm1.2 1.6a1.9 1.9 0 0 0 3.6 0h-3.6z" />
+      </svg>
+    ),
+  },
 ]
 
 export function TabBar({ active, path }: { active: Tab | null; path: string }) {

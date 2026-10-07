@@ -8,6 +8,9 @@ Sanzo Wada, *A Dictionary of Color Combinations*.
 - **Farbe wählen** – eine der 159 Wada-Farben antippen oder eine eigene Farbe wählen
   (Farbwähler oder Hex-Wert); die App zeigt die passenden Kombinationen.
 
+- **Kleiderschrank** – Kleidungsstücke fotografieren; die App stellt sie auf weißem Grund
+  frei, erkennt die Farben und speichert jedes Teil mit Art, Name und Notiz.
+
 ## Voraussetzungen
 
 Node.js 22.12 oder neuer (Vite 8).
@@ -30,6 +33,8 @@ Der Service Worker (Offline-Betrieb) läuft nur im Produktions-Build, nicht unte
 - `src/app` – Rahmen: Routen in der URL-Raute (`#/colors/42`), History und Scrollposition,
   Tab-Leiste.
 - `src/features/wada` – Color Matching: Daten, Farbmathematik, Bildschirme.
+- `src/features/wardrobe` – Kleiderschrank: Freistellen und Farberkennung (`cutout.ts`),
+  Bildverarbeitung im Browser (`image.ts`), Speicherung (`store.ts`), Bildschirme.
 - Weitere Features kommen als `src/features/<name>` plus ein Eintrag in `TABS`
   (`src/app/TabBar.tsx`) dazu.
 
@@ -45,6 +50,25 @@ Der Service Worker (Offline-Betrieb) läuft nur im Produktions-Build, nicht unte
   übernommen. Sie sind dadurch kräftiger als im gedruckten Buch.
 - Für eine eigene Farbe sucht die App die ähnlichsten Wada-Farben über den Abstand in OKLab
   (a und b doppelt gewichtet). Sehr dunkle, unbunte Farben führen immer zu „Black“.
+
+## Kleiderschrank
+
+- **Freistellen ohne KI:** Die Farbe am Bildrand gilt als Hintergrund. Entfernt wird alles,
+  was vom Rand aus zusammenhängt und dieser Farbe ähnelt; Schatten und weiche Verläufe
+  werden mitgenommen. Der Regler „Hintergrund entfernen“ stellt ein, wie ähnlich eine
+  Stelle dem Hintergrund sein darf; sein Startwert richtet sich danach, wie gleichmäßig
+  der Bildrand ist.
+- **Grenzen:** Das Kleidungsstück muss auf einer einfarbigen Fläche liegen, die sich
+  farblich abhebt, und ringsum muss Hintergrund zu sehen sein. Ein weißes Hemd auf weißem
+  Laken lässt sich so nicht trennen; dafür gibt es „Hintergrund nicht entfernen“. Stellen
+  in Hintergrundfarbe, die vom Kleidungsstück ganz umschlossen sind, bleiben stehen.
+- **Farben:** Aus dem freigestellten Teil werden die Hauptfarbe und bis zu zwei weitere
+  Farben bestimmt (ab 12 % Flächenanteil). Beleuchtete und schattige Stellen desselben
+  Stoffs zählen als eine Farbe. Jede Farbe lässt sich von Hand ändern und führt zu den
+  passenden Wada-Kombinationen.
+- **Speicherung:** Fotos (als JPEG, längste Seite höchstens 1024 px) und Angaben liegen in
+  der IndexedDB des Geräts. Es gibt keine Synchronisation und noch keine Sicherung: Wird
+  die App vom Home-Bildschirm gelöscht, ist der Kleiderschrank weg.
 
 ## Aufs iPhone bringen
 
@@ -81,6 +105,11 @@ Am PC nicht prüfbar, deshalb nach der ersten Installation durchgehen:
 - [ ] Wischgeste vom linken Rand führt zurück, die Liste steht an der alten Position.
 - [ ] Hex-Wert antippen kopiert ihn.
 - [ ] Dunkelmodus: Farbfelder bleiben an Schwarz und Weiß erkennbar.
+- [ ] Kleiderschrank: „Foto aufnehmen“ öffnet die Kamera, „Aus Fotos wählen“ die Mediathek.
+- [ ] Ein Hochformat-Foto erscheint aufrecht und wird in wenigen Sekunden freigestellt.
+- [ ] Der Regler „Hintergrund entfernen“ reagiert flüssig.
+- [ ] Ein gespeichertes Kleidungsstück ist nach dem Schließen und erneuten Öffnen der App
+      noch da.
 - [ ] Flugmodus einschalten, App schließen und neu öffnen: sie startet.
 - [ ] Nach einem neuen Deploy: App in den Hintergrund und wieder nach vorn holen; nach
       erneutem Öffnen zeigt die Fußzeile den neuen Stand.

@@ -41,6 +41,25 @@ export function hexToOklab(hex: string): Oklab {
   ]
 }
 
+/** OKLab -> sRGB hex; colours outside the sRGB gamut are clipped per channel. */
+export function oklabToHex([L, a, b]: Oklab): string {
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3
+  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3
+  const channel = (linear: number) => {
+    const v = linear <= 0.0031308 ? 12.92 * linear : 1.055 * linear ** (1 / 2.4) - 0.055
+    return Math.min(255, Math.max(0, Math.round(255 * v)))
+      .toString(16)
+      .padStart(2, '0')
+  }
+  return (
+    '#' +
+    channel(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s) +
+    channel(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s) +
+    channel(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s)
+  )
+}
+
 export const chroma = (lab: Oklab): number => Math.hypot(lab[1], lab[2])
 
 /** OKLab distance with a and b weighted twice; plain OKLab underweights chroma. */

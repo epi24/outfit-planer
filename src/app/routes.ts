@@ -7,9 +7,12 @@ export type Route =
   | { name: 'colors' }
   | { name: 'color'; id: number }
   | { name: 'custom'; hex: string }
+  | { name: 'wardrobe' }
+  | { name: 'garmentNew' }
+  | { name: 'garment'; id: string }
   | { name: 'notFound' }
 
-export type Tab = 'combinations' | 'colors'
+export type Tab = 'combinations' | 'colors' | 'wardrobe'
 
 /** Paths live in the URL hash, e.g. "#/colors/42". */
 export const paths = {
@@ -18,12 +21,18 @@ export const paths = {
   colors: '/colors',
   color: (id: number) => `/colors/${id}`,
   custom: (hex: string) => `/colors/custom/${hex.slice(1)}`,
+  wardrobe: '/wardrobe',
+  garmentNew: '/wardrobe/new',
+  garment: (id: string) => `/wardrobe/${id}`,
 } as const
 
 export const isTabRoot = (path: string): boolean =>
-  path === paths.combinations || path === paths.colors
+  path === paths.combinations || path === paths.colors || path === paths.wardrobe
 
 const ID = /^[1-9]\d{0,2}$/
+// As produced by newGarmentId(). Whether the garment exists is only known
+// once the wardrobe has been loaded.
+const GARMENT_ID = /^[a-z0-9-]{8,40}$/
 const NOT_FOUND: Route = { name: 'notFound' }
 
 export function parseRoute(path: string): Route {
@@ -48,6 +57,14 @@ export function parseRoute(path: string): Route {
     if (third === undefined && ID.test(second) && colorById(Number(second))) {
       return { name: 'color', id: Number(second) }
     }
+    return NOT_FOUND
+  }
+
+  if (first === 'wardrobe') {
+    if (second === undefined) return { name: 'wardrobe' }
+    if (third !== undefined) return NOT_FOUND
+    if (second === 'new') return { name: 'garmentNew' }
+    if (GARMENT_ID.test(second)) return { name: 'garment', id: second }
   }
   return NOT_FOUND
 }
@@ -61,6 +78,10 @@ export function tabOf(route: Route): Tab | null {
     case 'color':
     case 'custom':
       return 'colors'
+    case 'wardrobe':
+    case 'garmentNew':
+    case 'garment':
+      return 'wardrobe'
     case 'notFound':
       return null
   }

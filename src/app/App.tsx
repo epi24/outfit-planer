@@ -6,6 +6,9 @@ import { CombinationsScreen } from '../features/wada/CombinationsScreen'
 import { CustomColorScreen } from '../features/wada/CustomColorScreen'
 import { type SizeFilter, colorById } from '../features/wada/data'
 import { NotFound } from '../features/wada/parts'
+import { GarmentDetail } from '../features/wardrobe/GarmentDetail'
+import { GarmentNew } from '../features/wardrobe/GarmentNew'
+import { type WardrobeFilter, WardrobeScreen } from '../features/wardrobe/WardrobeScreen'
 import { type Route, parseRoute, tabOf } from './routes'
 import { scrollTarget, useNav } from './router'
 import { TabBar } from './TabBar'
@@ -24,6 +27,12 @@ function titleOf(route: Route): string {
       return colorById(route.id)?.name ?? 'Farbe'
     case 'custom':
       return 'Eigene Farbe'
+    case 'wardrobe':
+      return 'Kleiderschrank'
+    case 'garmentNew':
+      return 'Neues Kleidungsstück'
+    case 'garment':
+      return 'Kleidungsstück'
     case 'notFound':
       return 'Nicht gefunden'
   }
@@ -37,6 +46,7 @@ export function App() {
   // switching tabs.
   const [query, setQuery] = useState('')
   const [size, setSize] = useState<SizeFilter>(0)
+  const [wardrobeFilter, setWardrobeFilter] = useState<WardrobeFilter>('all')
 
   // Restore the scroll position on push and back/forward, but not when an
   // entry is merely replaced (previous/next combination, updated colour).
@@ -79,6 +89,15 @@ export function App() {
       break
     case 'custom':
       screen = <CustomColorScreen hex={route.hex} />
+      break
+    case 'wardrobe':
+      screen = <WardrobeScreen filter={wardrobeFilter} onFilterChange={setWardrobeFilter} />
+      break
+    case 'garmentNew':
+      screen = <GarmentNew />
+      break
+    case 'garment':
+      screen = <GarmentDetail id={route.id} />
       break
     case 'notFound':
       screen = <NotFound />

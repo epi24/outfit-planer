@@ -1,0 +1,322 @@
+/* Wardrobe: photo flow, garment grid, garment page. */
+
+.add-garment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.empty-wardrobe {
+  margin-top: 20px;
+  color: var(--muted);
+}
+
+/* ---- filter chips ---- */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.chips label {
+  position: relative;
+}
+
+.chips span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.chips input:checked + span {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+}
+
+.chips input:focus-visible + span {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.chips + .status,
+.add-garment + .status {
+  margin-top: 16px;
+}
+
+/* ---- grid ---- */
+
+.garment-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.garment-tile {
+  display: block;
+  text-decoration: none;
+}
+
+/* The photos are on white, so the tile stays white in dark mode too. */
+.garment-thumb {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.garment-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  padding: 6px;
+  object-fit: contain;
+}
+
+.garment-caption {
+  display: block;
+  margin-top: 6px;
+  overflow: hidden;
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.garment-dots {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.garment-dots span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+/* ---- add flow ---- */
+
+.photo-pick {
+  display: grid;
+  gap: 10px;
+}
+
+label.button {
+  display: flex;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+}
+
+label.button:focus-within {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.button.secondary {
+  border: 1px solid var(--line);
+  background: none;
+  color: inherit;
+}
+
+.button.danger {
+  background: var(--danger);
+  color: var(--bg);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.quiet-button {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.garment-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+
+.cutout-preview,
+.garment-photo {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.cutout-preview canvas,
+.garment-photo img {
+  display: block;
+  max-width: 100%;
+  max-height: 60svh;
+  padding: 8px;
+  object-fit: contain;
+}
+
+.garment-photo {
+  min-height: 200px;
+}
+
+.garment-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+
+.field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.field > label,
+.field > legend {
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.field .hint {
+  margin: 0;
+}
+
+select.text-input {
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 14px) 50%;
+  background-repeat: no-repeat;
+  background-size: 6px 6px;
+  padding-right: 36px;
+}
+
+textarea.text-input {
+  font: inherit;
+  font-size: max(16px, 1rem);
+  resize: vertical;
+}
+
+input[type='range'] {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  accent-color: var(--text);
+}
+
+.range-ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -8px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.check {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+}
+
+.check input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--text);
+}
+
+.color-fields ul,
+.garment-colors {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.color-fields li {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.color-field-text {
+  display: grid;
+  min-width: 0;
+}
+
+.color-field-text > span {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+/* ---- garment page ---- */
+
+.garment-colors li {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 2px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.garment-colors .chip {
+  grid-row: span 2;
+}
+
+.garment-colors .text-link {
+  grid-column: 2;
+}
+
+.garment-note {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.garment-added {
+  margin-top: 20px;
+}
+
+.garment-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.confirm {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}

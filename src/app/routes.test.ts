@@ -32,9 +32,24 @@ describe('parseRoute', () => {
     '/colors/custom/xyz',
     '/colors/custom/abcd',
     '/colors/custom/a1b2c3/x',
+    '/wardrobe/',
+    '/wardrobe/abc',
+    '/wardrobe/new/x',
+    '/wardrobe/NOT-AN-ID-123',
     '/nowhere',
   ])('%s is not found', (path) => {
     expect(parseRoute(path)).toEqual({ name: 'notFound' })
+  })
+
+  test('wardrobe', () => {
+    expect(parseRoute('/wardrobe')).toEqual({ name: 'wardrobe' })
+    expect(parseRoute('/wardrobe/new')).toEqual({ name: 'garmentNew' })
+    const id = '3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b'
+    expect(parseRoute(paths.garment(id))).toEqual({ name: 'garment', id })
+    expect(parseRoute('/wardrobe/mg1k2abc-x9y8z7w6')).toEqual({
+      name: 'garment',
+      id: 'mg1k2abc-x9y8z7w6',
+    })
   })
 
   test('custom colours are normalised', () => {
@@ -56,6 +71,8 @@ describe('paths', () => {
   test('tab roots', () => {
     expect(isTabRoot('/combinations')).toBe(true)
     expect(isTabRoot('/colors')).toBe(true)
+    expect(isTabRoot('/wardrobe')).toBe(true)
+    expect(isTabRoot('/wardrobe/new')).toBe(false)
     expect(isTabRoot('/colors/1')).toBe(false)
     expect(isTabRoot('/colors/custom/a1b2c3')).toBe(false)
   })
@@ -68,6 +85,9 @@ describe('tabOf', () => {
     expect(tabOf({ name: 'colors' })).toBe('colors')
     expect(tabOf({ name: 'color', id: 1 })).toBe('colors')
     expect(tabOf({ name: 'custom', hex: '#a1b2c3' })).toBe('colors')
+    expect(tabOf({ name: 'wardrobe' })).toBe('wardrobe')
+    expect(tabOf({ name: 'garmentNew' })).toBe('wardrobe')
+    expect(tabOf({ name: 'garment', id: 'abcdefgh' })).toBe('wardrobe')
     expect(tabOf({ name: 'notFound' })).toBeNull()
   })
 })
