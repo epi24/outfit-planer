@@ -19,8 +19,8 @@ interface Work {
   lab: Float32Array
   /** 1 = garment */
   mask: Uint8Array
-  /** the model could not be used and the colour-based method stepped in */
-  simple: boolean
+  /** set when the model could not be used and the colour-based method stepped in: why */
+  modelError: string | null
 }
 
 const EMPTY_DRAFT: GarmentDraft = { category: '', name: '', note: '', colors: [] }
@@ -35,15 +35,22 @@ function detectColors(work: Work, keepBackground: boolean): GarmentColor[] {
 /** Lets the browser paint (the "working" message) before a long computation. */
 const nextFrame = () => new Promise((resolve) => setTimeout(resolve, 50))
 
-async function findGarment(photo: Photo, lab: Float32Array): Promise<Pick<Work, 'mask' | 'simple'>> {
+async function findGarment(
+  photo: Photo,
+  lab: Float32Array,
+): Promise<Pick<Work, 'mask' | 'modelError'>> {
   try {
     const { cutOut } = await import('./matte')
-    return { mask: await cutOut(photo, lab), simple: false }
-  } catch {
+    return { mask: await cutOut(photo, lab), modelError: null }
+  } catch (error) {
     // No model, e.g. offline before it was ever downloaded: fall back to
     // removing whatever matches the colour along the photo's edge.
     const tolerance = suggestTolerance(lab, photo.width, photo.height)
-    return { mask: segment(lab, photo.width, photo.height, tolerance), simple: true }
+    const reason = error instanceof Error ? error.message : String(error)
+    return {
+      mask: segment(lab, photo.width, photo.height, tolerance),
+      modelError: reason.slice(0, 200),
+    }
   }
 }
 
@@ -138,9 +145,10 @@ export function GarmentNew() {
   const share = work ? coverage(work.mask) : 0
   const notices: string[] = []
   if (work && !keepBackground) {
-    if (work.simple) {
+    if (work.modelError !== null) {
+      // The reason is shown so that a failure on a phone can be reported.
       notices.push(
-        'Das Freistellen-Modell konnte nicht geladen werden (beim ersten Mal ist eine Internetverbindung nötig). Für dieses Foto wurde ein einfacheres Verfahren verwendet.',
+        `Das Freistellen-Modell konnte nicht verwendet werden (beim ersten Mal ist eine Internetverbindung nötig). Für dieses Foto wurde ein einfacheres Verfahren verwendet. Technische Angabe: ${work.modelError}`,
       )
     }
     if (share < 0.01) {
@@ -187,7 +195,7 @@ export function GarmentNew() {
           </label>
           {phase === 'working' && (
             <p role="status">
-              Foto wird verarbeitet … Beim ersten Mal lädt die App dafür einmalig rund 18 MB nach.
+              Foto wird verarbeitet … Beim ersten Mal lädt die App dafür einmalig rund 8 MB nach.
             </p>
           )}
         </section>

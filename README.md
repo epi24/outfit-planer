@@ -59,11 +59,16 @@ Der Service Worker (Offline-Betrieb) läuft nur im Produktions-Build, nicht unte
   Kleidungsstück ist. *Wo genau* die Kante verläuft, bestimmen danach die Farben des
   Fotos (`refine.ts`: Guided Filter, dann Zuordnung des Randstreifens nach lokaler Farbe).
 - **Download bei der ersten Benutzung:** Modell (`public/models/u2netp.onnx`) und Laufzeit
-  (`ort-wasm-simd-threaded.wasm`, 14 MB) gehören nicht zur Installation. Sie werden
+  (`ort-wasm-simd.wasm`, 10,6 MB; zusammen rund 8 MB Übertragung) gehören nicht zur
+  Installation. Sie werden
   geladen, sobald die Seite „Neues Kleidungsstück“ geöffnet wird, und bleiben danach im
   Cache `background-removal` für den Offline-Betrieb.
-- **Ein Thread:** Mehrere Threads bräuchten `SharedArrayBuffer` und damit HTTP-Header, die
-  GitHub Pages nicht setzen kann. Ein Foto braucht am PC rund drei Sekunden.
+- **onnxruntime-web ist bewusst auf 1.18.0 festgelegt.** Ab 1.19 gibt es nur noch den
+  Thread-Build, dessen gemeinsamer Speicher beim Start sein Maximum von 4 GB reserviert.
+  Safari auf dem iPhone lehnt das mit „RangeError: Out of memory“ ab; das Modell startet
+  dort dann gar nicht. 1.18.0 ist die letzte Version mit einem Build ohne Threads, dessen
+  Speicher nach Bedarf wächst. Vor einem Update auf einem iPhone prüfen.
+- **Ein Thread:** Ein Foto braucht am PC rund vier Sekunden.
 - **Ersatzverfahren:** Lässt sich das Modell nicht laden (z. B. offline vor dem ersten
   Download), entfernt die App, was der Farbe des Bildrands ähnelt (`cutout.ts`), und weist
   darauf hin.
