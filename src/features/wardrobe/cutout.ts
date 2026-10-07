@@ -170,8 +170,11 @@ export function segment(
   return erode(mask, width, height, 1)
 }
 
-/** Removes specks: keeps the largest connected part and any at least a tenth its size. */
-export function keepLargeParts(mask: Uint8Array, width: number, height: number) {
+/**
+ * Removes specks: keeps the largest connected part and any that is at least
+ * `share` of its size.
+ */
+export function keepLargeParts(mask: Uint8Array, width: number, height: number, share = 0.1) {
   const total = width * height
   const labels = new Int32Array(total)
   const queue = new Int32Array(total)
@@ -201,7 +204,7 @@ export function keepLargeParts(mask: Uint8Array, width: number, height: number) 
     sizes.push(tail)
   }
 
-  const threshold = Math.max(...sizes) / 10
+  const threshold = Math.max(...sizes) * share
   for (let i = 0; i < total; i++) {
     if (mask[i] === 1 && sizes[labels[i]!]! < threshold) mask[i] = 0
   }

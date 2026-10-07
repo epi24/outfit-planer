@@ -57,7 +57,10 @@ Der Service Worker (Offline-Betrieb) läuft nur im Produktions-Build, nicht unte
   Hauptobjekt. Es läuft über ONNX Runtime (WebAssembly) direkt auf dem Gerät; kein Foto
   verlässt es. Das Modell sieht das Foto nur in 320 × 320 Pixeln und entscheidet, *was*
   Kleidungsstück ist. *Wo genau* die Kante verläuft, bestimmen danach die Farben des
-  Fotos (`refine.ts`: Guided Filter, dann Zuordnung des Randstreifens nach lokaler Farbe).
+  Fotos (`refine.ts`): Ein Guided Filter legt die Kante an die Bildkanten; Stellen, bei
+  denen das Modell unsicher war, kommen dazu, wenn sie eine Farbe des Kleidungsstücks
+  haben und mit ihm zusammenhängen; der Randstreifen wird nach lokaler Farbe zugeordnet;
+  Löcher werden geschlossen, sofern sie nicht den Hintergrund zeigen.
 - **Download bei der ersten Benutzung:** Modell (`public/models/u2netp.onnx`) und Laufzeit
   (`ort-wasm-simd.wasm`, 10,6 MB; zusammen rund 8 MB Übertragung) gehören nicht zur
   Installation. Sie werden

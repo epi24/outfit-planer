@@ -60,8 +60,8 @@ function scaledPixels(photo: Photo): Uint8ClampedArray {
   return pixels
 }
 
-/** The garment mask (1 = garment) for a photo. */
-export async function cutOut(photo: Photo, lab: Float32Array): Promise<Uint8Array> {
+/** The model's answer for a photo: garment likelihood, 0..1, at 320 x 320. */
+export async function saliencyOf(photo: Photo): Promise<Float32Array> {
   const model = await loadModel()
   const input = new ort.Tensor('float32', toModelInput(scaledPixels(photo)), [
     1,
@@ -75,6 +75,10 @@ export async function cutOut(photo: Photo, lab: Float32Array): Promise<Uint8Arra
   const result = await model.run({ [inputName]: input })
   const output = result[outputName]
   if (!output) throw new Error('Das Modell hat kein Ergebnis geliefert')
-  const saliency = normalizeOutput(output.data as Float32Array)
-  return maskFromSaliency(saliency, lab, photo.width, photo.height)
+  return normalizeOutput(output.data as Float32Array)
+}
+
+/** The garment mask (1 = garment) for a photo. */
+export async function cutOut(photo: Photo, lab: Float32Array): Promise<Uint8Array> {
+  return maskFromSaliency(await saliencyOf(photo), lab, photo.width, photo.height)
 }

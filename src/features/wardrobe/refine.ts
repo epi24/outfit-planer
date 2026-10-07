@@ -139,6 +139,10 @@ export function guidedFilter(
   return result
 }
 
+// How sure the model is that a pixel is garment, after refinement:
+const STRONG = 0.5 // garment
+const WEAK = 0.15 // possibly garment; colour and connection decide
+
 /**
  * The garment mask (1 = garment) for a photo, from the model's 320 x 320
  * answer and the photo's OKLab pixels.
@@ -155,13 +159,186 @@ export function maskFromSaliency(
   // The model's outline can be off by a few of its own pixels; the window
   // has to span that distance in photo pixels.
   const radius = Math.max(2, Math.round((Math.max(width, height) / MODEL_SIZE) * 4))
-  const refined = guidedFilter(lightness, coarse, width, height, radius, 1e-3)
+  const likelihood = guidedFilter(lightness, coarse, width, height, radius, 1e-3)
 
   const mask = new Uint8Array(width * height)
-  for (let i = 0; i < mask.length; i++) mask[i] = refined[i]! > 0.5 ? 1 : 0
+  for (let i = 0; i < mask.length; i++) mask[i] = likelihood[i]! > STRONG ? 1 : 0
+  recoverWeakParts(mask, likelihood, lab, width)
   settleOutline(mask, lab, width, height, radius)
-  keepLargeParts(mask, width, height)
+  fillHoles(mask, lab, width, height)
+  keepLargeParts(mask, width, height, 0.03)
   return erode(mask, width, height, 1)
+}
+
+interface LocalColours {
+  weight: Float32Array
+  channels: Float32Array[]
+}
+
+/**
+ * Mean colour of the `sure` pixels around every pixel: box means of
+ * "colour x membership" over box means of membership (the window sizes
+ * cancel out).
+ */
+function localColours(
+  sure: Uint8Array,
+  lab: Float32Array,
+  width: number,
+  height: number,
+  radius: number,
+): LocalColours {
+  const size = sure.length
+  const weight = boxMean(Float32Array.from(sure), width, height, radius)
+  const channels = [0, 1, 2].map((channel) => {
+    const weighted = new Float32Array(size)
+    for (let i = 0; i < size; i++) weighted[i] = sure[i]! * lab[i * 3 + channel]!
+    return boxMean(weighted, width, height, radius)
+  })
+  return { weight, channels }
+}
+
+/**
+ * Which side pixel `i` resembles: 1 = the garment's local colour, 0 = the
+ * background's, -1 = colour cannot tell (one side has no sure pixels nearby,
+ * or both look alike).
+ */
+function resembles(
+  i: number,
+  lab: Float32Array,
+  garment: LocalColours,
+  background: LocalColours,
+): 1 | 0 | -1 {
+  const garmentWeight = garment.weight[i]!
+  const backgroundWeight = background.weight[i]!
+  if (garmentWeight < 1e-4 || backgroundWeight < 1e-4) return -1
+  let toGarment = 0
+  let toBackground = 0
+  let contrast = 0
+  for (let channel = 0; channel < 3; channel++) {
+    // lightness counts less, so that a shadow next to the garment stays background
+    const scale = channel === 0 ? 0.6 : 2
+    const g = garment.channels[channel]![i]! / garmentWeight
+    const b = background.channels[channel]![i]! / backgroundWeight
+    const value = lab[i * 3 + channel]!
+    toGarment += (scale * (value - g)) ** 2
+    toBackground += (scale * (value - b)) ** 2
+    contrast += (scale * (g - b)) ** 2
+  }
+  if (contrast < 0.04 ** 2) return -1
+  return toGarment < toBackground ? 1 : 0
+}
+
+/** Colour distance in which lightness counts less, so that shading matters little. */
+const colourDistance = (lab: Float32Array, i: number, centre: readonly number[]) =>
+  Math.hypot(
+    0.6 * (lab[i * 3]! - centre[0]!),
+    2 * (lab[i * 3 + 1]! - centre[1]!),
+    2 * (lab[i * 3 + 2]! - centre[2]!),
+  )
+
+/**
+ * Up to `count` typical colours of the given pixels (k-means with a
+ * deterministic start: the first sample, then repeatedly the sample farthest
+ * from all centres chosen so far).
+ */
+function typicalColours(lab: Float32Array, pixels: readonly number[], count: number): number[][] {
+  const stride = Math.max(1, Math.floor(pixels.length / 3000))
+  const samples: number[] = []
+  for (let i = 0; i < pixels.length; i += stride) samples.push(pixels[i]!)
+  if (samples.length === 0) return []
+
+  const colourOf = (i: number) => [lab[i * 3]!, lab[i * 3 + 1]!, lab[i * 3 + 2]!]
+  let centres = [colourOf(samples[0]!)]
+  const nearest = (i: number) => Math.min(...centres.map((centre) => colourDistance(lab, i, centre)))
+  while (centres.length < count) {
+    let farthest = samples[0]!
+    let farthestDistance = -1
+    for (const sample of samples) {
+      const distance = nearest(sample)
+      if (distance > farthestDistance) {
+        farthestDistance = distance
+        farthest = sample
+      }
+    }
+    if (farthestDistance < 0.03) break
+    centres.push(colourOf(farthest))
+  }
+  for (let iteration = 0; iteration < 6; iteration++) {
+    const sums = centres.map(() => [0, 0, 0, 0])
+    for (const sample of samples) {
+      let best = 0
+      let bestDistance = Infinity
+      centres.forEach((centre, index) => {
+        const distance = colourDistance(lab, sample, centre)
+        if (distance < bestDistance) {
+          bestDistance = distance
+          best = index
+        }
+      })
+      const sum = sums[best]!
+      sum[0]! += lab[sample * 3]!
+      sum[1]! += lab[sample * 3 + 1]!
+      sum[2]! += lab[sample * 3 + 2]!
+      sum[3]! += 1
+    }
+    centres = sums
+      .filter((sum) => sum[3]! > 0)
+      .map((sum) => [sum[0]! / sum[3]!, sum[1]! / sum[3]!, sum[2]! / sum[3]!])
+  }
+  return centres
+}
+
+/**
+ * Adds parts the model was unsure about - a sleeve, a strap, the middle of a
+ * plain top - when they have one of the garment's colours rather than one of
+ * the background's, and hang together with what the model was sure about.
+ */
+function recoverWeakParts(
+  mask: Uint8Array,
+  likelihood: Float32Array,
+  lab: Float32Array,
+  width: number,
+) {
+  const size = mask.length
+  const sureGarment: number[] = []
+  const sureBackground: number[] = []
+  for (let i = 0; i < size; i++) {
+    if (likelihood[i]! > 0.7) sureGarment.push(i)
+    else if (likelihood[i]! < 0.05) sureBackground.push(i)
+  }
+  // The colours are taken from the whole photo: the unsure part, a sleeve
+  // say, can be far from anything the model was sure about.
+  const garmentColours = typicalColours(lab, sureGarment, 5)
+  const backgroundColours = typicalColours(lab, sureBackground, 6)
+  if (garmentColours.length === 0 || backgroundColours.length === 0) return
+
+  const closest = (i: number, colours: number[][]) =>
+    Math.min(...colours.map((colour) => colourDistance(lab, i, colour)))
+  const candidate = new Uint8Array(size)
+  const queue = new Int32Array(size)
+  let tail = 0
+  for (let i = 0; i < size; i++) {
+    if (mask[i] === 1) {
+      queue[tail++] = i
+    } else if (likelihood[i]! > WEAK) {
+      const toGarment = closest(i, garmentColours)
+      if (toGarment < 0.12 && toGarment < closest(i, backgroundColours)) candidate[i] = 1
+    }
+  }
+  const join = (next: number) => {
+    if (candidate[next] === 1 && mask[next] === 0) {
+      mask[next] = 1
+      queue[tail++] = next
+    }
+  }
+  for (let head = 0; head < tail; head++) {
+    const index = queue[head]!
+    const x = index % width
+    if (x > 0) join(index - 1)
+    if (x < width - 1) join(index + 1)
+    if (index >= width) join(index - width)
+    if (index < size - width) join(index + width)
+  }
 }
 
 /**
@@ -177,7 +354,6 @@ function settleOutline(
   height: number,
   radius: number,
 ) {
-  const size = mask.length
   const band = Math.max(1, Math.round(radius / 2))
   const sureGarment = erode(mask, width, height, band)
   const sureBackground = erode(
@@ -186,41 +362,82 @@ function settleOutline(
     height,
     band,
   )
+  const garment = localColours(sureGarment, lab, width, height, radius)
+  const background = localColours(sureBackground, lab, width, height, radius)
 
-  // Local mean colours: box means of "colour x membership" over box means of
-  // membership; the window sizes cancel out.
-  const means = (sure: Uint8Array) => {
-    const weight = boxMean(Float32Array.from(sure), width, height, radius)
-    const channels = [0, 1, 2].map((channel) => {
-      const weighted = new Float32Array(size)
-      for (let i = 0; i < size; i++) weighted[i] = sure[i]! * lab[i * 3 + channel]!
-      return boxMean(weighted, width, height, radius)
-    })
-    return { weight, channels }
-  }
-  const garment = means(sureGarment)
-  const background = means(sureBackground)
-
-  for (let i = 0; i < size; i++) {
+  for (let i = 0; i < mask.length; i++) {
     if (sureGarment[i] === 1 || sureBackground[i] === 1) continue
-    const garmentWeight = garment.weight[i]!
-    const backgroundWeight = background.weight[i]!
-    if (garmentWeight < 1e-4 || backgroundWeight < 1e-4) continue
-    let toGarment = 0
-    let toBackground = 0
-    let contrast = 0
-    for (let channel = 0; channel < 3; channel++) {
-      // lightness counts less, so that a shadow next to the garment stays background
-      const scale = channel === 0 ? 0.6 : 2
-      const g = garment.channels[channel]![i]! / garmentWeight
-      const b = background.channels[channel]![i]! / backgroundWeight
-      const value = lab[i * 3 + channel]!
-      toGarment += (scale * (value - g)) ** 2
-      toBackground += (scale * (value - b)) ** 2
-      contrast += (scale * (g - b)) ** 2
+    const side = resembles(i, lab, garment, background)
+    if (side !== -1) mask[i] = side
+  }
+}
+
+/**
+ * Closes holes inside the garment, e.g. a print the model took for
+ * background. A hole stays open when it shows the background's colour and is
+ * more than a speck: then the background really is visible through it.
+ */
+function fillHoles(mask: Uint8Array, lab: Float32Array, width: number, height: number) {
+  const size = mask.length
+  const state = new Uint8Array(size) // 0 = not visited, 1 = visited
+  const queue = new Int32Array(size)
+  let tail = 0
+  const visit = (index: number) => {
+    if (mask[index] === 0 && state[index] === 0) {
+      state[index] = 1
+      queue[tail++] = index
     }
-    // Where garment and background look alike, colour cannot decide.
-    if (contrast < 0.04 ** 2) continue
-    mask[i] = toGarment < toBackground ? 1 : 0
+  }
+  /** Spreads from the queued pixels over connected background; returns its colour sum. */
+  const spread = () => {
+    const sum = [0, 0, 0]
+    for (let head = 0; head < tail; head++) {
+      const index = queue[head]!
+      sum[0]! += lab[index * 3]!
+      sum[1]! += lab[index * 3 + 1]!
+      sum[2]! += lab[index * 3 + 2]!
+      const x = index % width
+      if (x > 0) visit(index - 1)
+      if (x < width - 1) visit(index + 1)
+      if (index >= width) visit(index - width)
+      if (index < size - width) visit(index + width)
+    }
+    return sum.map((value) => value / Math.max(1, tail))
+  }
+
+  let garmentArea = 0
+  for (let i = 0; i < size; i++) garmentArea += mask[i]!
+  if (garmentArea === 0) return
+
+  // The background that is reachable from the image edge.
+  for (let x = 0; x < width; x++) {
+    visit(x)
+    visit(size - width + x)
+  }
+  for (let y = 0; y < height; y++) {
+    visit(y * width)
+    visit(y * width + width - 1)
+  }
+  const outside = spread()
+  const hasOutside = tail > 0
+
+  // What is left of the background is enclosed by the garment.
+  for (let start = 0; start < size; start++) {
+    if (mask[start] === 1 || state[start] === 1) continue
+    tail = 0
+    visit(start)
+    const colour = spread()
+    const area = tail
+    const likeOutside =
+      hasOutside &&
+      Math.hypot(
+        0.6 * (colour[0]! - outside[0]!),
+        2 * (colour[1]! - outside[1]!),
+        2 * (colour[2]! - outside[2]!),
+      ) < 0.08
+    const speck = area < garmentArea * 0.003
+    if (speck || (!likeOutside && area < garmentArea * 0.25)) {
+      for (let i = 0; i < area; i++) mask[queue[i]!] = 1
+    }
   }
 }
